@@ -1,5 +1,6 @@
 const bcrypt = require("bcryptjs");
 const User = require("../models/user.model");
+const { generateToken } = require("../utils/jwt");
 
 module.exports = {
   register: async (req, res) => {
@@ -70,8 +71,11 @@ module.exports = {
           .json({ message: "Username atau password salah" });
       }
 
+      const token = generateToken(user);
+
       res.status(200).json({
         message: "Login berhasil",
+        token,
         user: {
           _id: user._id,
           nama: user.nama,
