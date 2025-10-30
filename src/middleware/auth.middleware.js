@@ -14,7 +14,11 @@ module.exports = {
 
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      req.user = decoded;
+      req.user = {
+        _id: decoded.id,
+        username: decoded.username,
+        role: decoded.role || "user",
+      };
       next();
     } catch (error) {
       return res
