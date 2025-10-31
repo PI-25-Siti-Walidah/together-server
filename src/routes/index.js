@@ -10,6 +10,7 @@ const bantuanRouter = require("./bantuan.route");
 const pengajuanRouter = require("./pengajuan.route");
 const trackingPengajuanRouter = require("./tracking-pengajuan.route");
 const formPengajuanRouter = require("./form-pengajuan.route");
+const jawabanFormRouter = require("./jawaban-form.route");
 
 router.use("/auth", authRouter);
 router.use("/users", verifyToken, userRouter);
@@ -19,5 +20,6 @@ router.use("/bantuan", verifyToken, bantuanRouter);
 router.use("/pengajuan", verifyToken, pengajuanRouter);
 router.use("/tracking-pengajuan", verifyToken, trackingPengajuanRouter);
 router.use("/form-pengajuan", verifyToken, formPengajuanRouter);
+router.use("/jawaban-form", verifyToken, jawabanFormRouter);
 
 module.exports = router;
