@@ -9,6 +9,7 @@ const mitraRouter = require("./mitra.route");
 const bantuanRouter = require("./bantuan.route");
 const pengajuanRouter = require("./pengajuan.route");
 const trackingPengajuanRouter = require("./tracking-pengajuan.route");
+const formPengajuanRouter = require("./form-pengajuan.route");
 
 router.use("/auth", authRouter);
 router.use("/users", verifyToken, userRouter);
@@ -17,5 +18,6 @@ router.use("/mitra", verifyToken, mitraRouter);
 router.use("/bantuan", verifyToken, bantuanRouter);
 router.use("/pengajuan", verifyToken, pengajuanRouter);
 router.use("/tracking-pengajuan", verifyToken, trackingPengajuanRouter);
+router.use("/form-pengajuan", verifyToken, formPengajuanRouter);
 
 module.exports = router;
