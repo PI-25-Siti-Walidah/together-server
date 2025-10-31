@@ -15,8 +15,8 @@ const pengajuanSchema = new Schema(
     },
     status_pengajuan: {
       type: String,
-      enum: ["ditinjau", "disetujui", "ditolak", "Selesai"],
-      default: "ditinjau",
+      enum: ["diproses", "disetujui", "ditolak", "selesai"],
+      default: "diproses",
     },
     catatan_admin: {
       type: String,
