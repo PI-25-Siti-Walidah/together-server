@@ -47,7 +47,7 @@ const uploadPrivateImage = (folderName = "others") => {
     destination: (req, file, cb) => {
       const uploadPath = path.resolve(
         __dirname,
-        `../../uploads/images/${folderName}`
+        `../../private/uploads/images/${folderName}`
       );
       ensureDirExists(uploadPath);
       cb(null, uploadPath);
@@ -79,7 +79,10 @@ const uploadPrivateImage = (folderName = "others") => {
 const uploadPrivateDoc = (folderName = "documents") => {
   const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-      const uploadPath = path.resolve(__dirname, `../../uploads/${folderName}`);
+      const uploadPath = path.resolve(
+        __dirname,
+        `../../private/uploads/documents/${folderName}`
+      );
       ensureDirExists(uploadPath);
       cb(null, uploadPath);
     },
