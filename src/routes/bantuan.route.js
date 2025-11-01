@@ -1,5 +1,7 @@
 const express = require("express");
 const router = express.Router();
+const { verifyToken } = require("../middleware/auth.middleware");
+s;
 const { uploadPublicImage } = require("../middleware/upload.middleware");
 const {
   createBantuan,
@@ -10,11 +12,21 @@ const {
   deleteAllBantuan,
 } = require("../controllers/bantuan.controller");
 
-router.post("/", uploadPublicImage("bantuan").single("foto"), createBantuan);
+router.post(
+  "/",
+  verifyToken,
+  uploadPublicImage("bantuan").single("foto"),
+  createBantuan
+);
 router.get("/", getAllBantuan);
 router.get("/:id", getBantuanById);
-router.put("/:id", uploadPublicImage("bantuan").single("foto"), updateBantuan);
-router.delete("/:id", deleteBantuan);
-router.delete("/", deleteAllBantuan);
+router.patch(
+  "/:id",
+  verifyToken,
+  uploadPublicImage("bantuan").single("foto"),
+  updateBantuan
+);
+router.delete("/:id", verifyToken, deleteBantuan);
+router.delete("/", verifyToken, deleteAllBantuan);
 
 module.exports = router;

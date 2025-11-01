@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { verifyToken } = require("../middleware/auth.middleware");
 const {
   createMitra,
   getAllMitra,
@@ -10,11 +11,21 @@ const {
 } = require("../controllers/mitra.controller");
 const { uploadPublicImage } = require("../middleware/upload.middleware");
 
-router.post("/", uploadPublicImage("mitra").single("logo"), createMitra);
+router.post(
+  "/",
+  verifyToken,
+  uploadPublicImage("mitra").single("logo"),
+  createMitra
+);
 router.get("/", getAllMitra);
 router.get("/:id", getMitraById);
-router.put("/:id", uploadPublicImage("mitra").single("logo"), updateMitra);
-router.delete("/:id", deleteMitra);
-router.delete("/", deleteAllMitra);
+router.patch(
+  "/:id",
+  verifyToken,
+  uploadPublicImage("mitra").single("logo"),
+  updateMitra
+);
+router.delete("/:id", verifyToken, deleteMitra);
+router.delete("/", verifyToken, deleteAllMitra);
 
 module.exports = router;

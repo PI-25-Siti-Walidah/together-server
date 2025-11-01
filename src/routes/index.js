@@ -16,9 +16,9 @@ const testimoniRouter = require("./testimoni.route");
 
 router.use("/auth", authRouter);
 router.use("/users", verifyToken, userRouter);
-router.use("/kategori", verifyToken, kategoriRouter);
-router.use("/mitra", verifyToken, mitraRouter);
-router.use("/bantuan", verifyToken, bantuanRouter);
+router.use("/kategori", kategoriRouter);
+router.use("/mitra", mitraRouter);
+router.use("/bantuan", bantuanRouter);
 router.use("/pengajuan", verifyToken, pengajuanRouter);
 router.use("/tracking-pengajuan", verifyToken, trackingPengajuanRouter);
 router.use("/form-pengajuan", verifyToken, formPengajuanRouter);
