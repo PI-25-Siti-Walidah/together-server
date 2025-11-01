@@ -12,6 +12,7 @@ const trackingPengajuanRouter = require("./tracking-pengajuan.route");
 const formPengajuanRouter = require("./form-pengajuan.route");
 const jawabanFormRouter = require("./jawaban-form.route");
 const buktiPenerimaanRouter = require("./bukti-penerimaan.route");
+const testimoniRouter = require("./testimoni.route");
 
 router.use("/auth", authRouter);
 router.use("/users", verifyToken, userRouter);
@@ -23,5 +24,6 @@ router.use("/tracking-pengajuan", verifyToken, trackingPengajuanRouter);
 router.use("/form-pengajuan", verifyToken, formPengajuanRouter);
 router.use("/jawaban-form", verifyToken, jawabanFormRouter);
 router.use("/bukti-penerimaan", verifyToken, buktiPenerimaanRouter);
+router.use("/testimoni", verifyToken, testimoniRouter);
 
 module.exports = router;
