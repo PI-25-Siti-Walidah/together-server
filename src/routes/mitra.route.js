@@ -9,12 +9,12 @@ const {
   deleteMitra,
   deleteAllMitra,
 } = require("../controllers/mitra.controller");
-const { uploadPublicImage } = require("../middleware/upload.middleware");
+const { uploadPublicFile } = require("../middleware/upload.middleware");
 
 router.post(
   "/",
   verifyToken,
-  uploadPublicImage("mitra").single("logo"),
+  uploadPublicFile("mitra").single("logo"),
   createMitra
 );
 router.get("/", getAllMitra);
@@ -22,7 +22,7 @@ router.get("/:id", getMitraById);
 router.patch(
   "/:id",
   verifyToken,
-  uploadPublicImage("mitra").single("logo"),
+  uploadPublicFile("mitra").single("logo"),
   updateMitra
 );
 router.delete("/:id", verifyToken, deleteMitra);

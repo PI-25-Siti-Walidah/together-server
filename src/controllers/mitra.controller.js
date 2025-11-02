@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const Mitra = require("../models/mitra.model");
 
-const publicDir = path.resolve(__dirname, "../../public/uploads/images/mitra");
+const publicDir = path.resolve(__dirname, "../../public/uploads/mitra");
 
 const safeUnlink = (filePath) => {
   try {
@@ -25,15 +25,18 @@ module.exports = {
 
       let logo = null;
       if (req.file) {
-        logo = `uploads/images/mitra/${req.file.filename}`;
+        logo = `uploads/mitra/${req.file.filename}`;
       }
 
       const mitra = await Mitra.create({ nama, no_telp, alamat, logo });
 
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      const logo_url = logo ? `${baseUrl}/${logo}` : null;
+
       res.status(201).json({
         success: true,
         message: "Mitra berhasil ditambahkan",
-        data: mitra,
+        data: { ...mitra._doc, logo_url },
       });
     } catch (error) {
       res.status(500).json({
@@ -60,13 +63,19 @@ module.exports = {
       const totalData = await Mitra.countDocuments(filter);
       const totalPages = Math.ceil(totalData / parseInt(limit));
 
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      const dataWithUrl = mitraList.map((m) => ({
+        ...m._doc,
+        logo_url: m.logo ? `${baseUrl}/${m.logo}` : null,
+      }));
+
       res.status(200).json({
         success: true,
         message: "Berhasil mengambil semua data mitra",
         page: parseInt(page),
         totalPages,
         totalData,
-        data: mitraList,
+        data: dataWithUrl,
       });
     } catch (error) {
       res.status(500).json({
@@ -85,10 +94,13 @@ module.exports = {
           .status(404)
           .json({ success: false, message: "Mitra tidak ditemukan" });
 
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      const logo_url = mitra.logo ? `${baseUrl}/${mitra.logo}` : null;
+
       res.status(200).json({
         success: true,
         message: "Berhasil mendapatkan data mitra",
-        data: mitra,
+        data: { ...mitra._doc, logo_url },
       });
     } catch (error) {
       res.status(500).json({
@@ -115,17 +127,20 @@ module.exports = {
           const oldPath = path.resolve(__dirname, "../../public", mitra.logo);
           safeUnlink(oldPath);
         }
-        updateData.logo = `uploads/images/mitra/${req.file.filename}`;
+        updateData.logo = `uploads/mitra/${req.file.filename}`;
       }
 
       const updated = await Mitra.findByIdAndUpdate(id, updateData, {
         new: true,
       });
 
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      const logo_url = updated.logo ? `${baseUrl}/${updated.logo}` : null;
+
       res.status(200).json({
         success: true,
         message: "Mitra berhasil diperbarui",
-        data: updated,
+        data: { ...updated._doc, logo_url },
       });
     } catch (error) {
       res.status(500).json({
@@ -163,6 +178,7 @@ module.exports = {
       });
     }
   },
+
   deleteAllMitra: async (req, res) => {
     try {
       const mitraList = await Mitra.find({});

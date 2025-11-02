@@ -3,10 +3,7 @@ const Pengajuan = require("../models/pengajuan.model");
 const path = require("path");
 const fs = require("fs");
 
-const privateDir = path.resolve(
-  __dirname,
-  "../../private/uploads/images/testimoni"
-);
+const publicDir = path.resolve(__dirname, "../../public/uploads/testimoni");
 
 const safeUnlink = (filePath) => {
   try {
@@ -33,7 +30,7 @@ module.exports = {
 
       const pengajuan = await Pengajuan.findById(pengajuan_id);
       if (!pengajuan) {
-        safeUnlink(path.join(privateDir, req.file.filename));
+        safeUnlink(path.join(publicDir, req.file.filename));
         return res.status(404).json({ message: "Pengajuan tidak ditemukan" });
       }
 
@@ -42,7 +39,7 @@ module.exports = {
         return res.status(400).json({ message: "File harus berupa gambar" });
       }
 
-      const fotoPath = `private/uploads/images/testimoni/${req.file.filename}`;
+      const fotoPath = `uploads/testimoni/${req.file.filename}`;
 
       const newTestimoni = await Testimoni.create({
         pengajuan_id,
@@ -74,11 +71,9 @@ module.exports = {
 
       const baseUrl = `${req.protocol}://${req.get("host")}`;
 
-      const dataWithFullUrl = testimoniList.map((testimoni) => ({
-        ...testimoni._doc,
-        foto_url: `${baseUrl}/files/private/images/testimoni/${path.basename(
-          testimoni.foto
-        )}`,
+      const dataWithFullUrl = testimoniList.map((t) => ({
+        ...t._doc,
+        foto_url: `${baseUrl}/${t.foto}`,
       }));
 
       res.status(200).json({
@@ -109,9 +104,7 @@ module.exports = {
 
       const dataWithFullUrl = {
         ...testimoni._doc,
-        foto_url: `${baseUrl}/files/private/images/testimoni/${path.basename(
-          testimoni.foto
-        )}`,
+        foto_url: `${baseUrl}/${testimoni.foto}`,
       };
 
       res.status(200).json({
@@ -137,8 +130,9 @@ module.exports = {
         return res.status(404).json({ message: "Testimoni tidak ditemukan" });
 
       if (req.file) {
-        safeUnlink(path.resolve(__dirname, "../../", testimoni.foto));
-        testimoni.foto = `private/uploads/images/testimoni/${req.file.filename}`;
+        const oldPath = path.resolve(__dirname, "../../public", testimoni.foto);
+        safeUnlink(oldPath);
+        testimoni.foto = `uploads/testimoni/${req.file.filename}`;
       }
 
       if (keterangan) testimoni.keterangan = keterangan.trim();
@@ -164,7 +158,7 @@ module.exports = {
       if (!testimoni)
         return res.status(404).json({ message: "Testimoni tidak ditemukan" });
 
-      safeUnlink(path.resolve(__dirname, "../../", testimoni.foto));
+      safeUnlink(path.resolve(__dirname, "../../public", testimoni.foto));
       await Testimoni.findByIdAndDelete(req.params.id);
 
       res.status(200).json({ message: "Testimoni berhasil dihapus" });
