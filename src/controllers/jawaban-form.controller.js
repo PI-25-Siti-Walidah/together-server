@@ -1,15 +1,34 @@
 const JawabanForm = require("../models/jawaban-form.model");
 const Pengajuan = require("../models/pengajuan.model");
 const FormPengajuan = require("../models/form-pengajuan.model");
+const path = require("path");
+const fs = require("fs");
+
+const privateDir = path.resolve(
+  __dirname,
+  "../../private/uploads/jawaban-form"
+);
+
+if (!fs.existsSync(privateDir)) {
+  fs.mkdirSync(privateDir, { recursive: true });
+}
+
+const safeUnlink = (filePath) => {
+  try {
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  } catch (err) {
+    console.warn("⚠️ Gagal menghapus file:", err.message);
+  }
+};
 
 module.exports = {
   createJawabanForm: async (req, res) => {
     try {
       const { pengajuan_id, form_id, jawaban } = req.body;
 
-      if (!pengajuan_id || !form_id || !jawaban) {
+      if (!pengajuan_id || !form_id) {
         return res.status(400).json({
-          message: "Field pengajuan_id, form_id, dan jawaban wajib diisi",
+          message: "Field pengajuan_id dan form_id wajib diisi",
         });
       }
 
@@ -31,10 +50,34 @@ module.exports = {
         });
       }
 
+      let jawabanValue = jawaban;
+
+      if (form.type_field === "file") {
+        if (!req.file)
+          return res.status(400).json({ message: "File wajib diunggah" });
+
+        const allowedMime = [
+          "image/jpeg",
+          "image/png",
+          "application/pdf",
+          "application/msword",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ];
+
+        if (!allowedMime.includes(req.file.mimetype)) {
+          safeUnlink(req.file.path);
+          return res.status(400).json({ message: "Tipe file tidak diizinkan" });
+        }
+
+        jawabanValue = `private/uploads/jawaban-form/${req.file.filename}`;
+      } else if (!jawaban) {
+        return res.status(400).json({ message: "Jawaban wajib diisi" });
+      }
+
       const newJawaban = await JawabanForm.create({
         pengajuan_id,
         form_id,
-        jawaban,
+        jawaban: jawabanValue,
       });
 
       res.status(201).json({
@@ -42,7 +85,7 @@ module.exports = {
         data: newJawaban,
       });
     } catch (error) {
-      console.error(error);
+      console.error("❌ CREATE JAWABAN FORM ERROR:", error);
       res.status(500).json({
         message: "Gagal menyimpan jawaban form",
         error: error.message,
@@ -73,12 +116,25 @@ module.exports = {
         })
         .sort({ createdAt: -1 });
 
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+
+      const dataWithUrl = jawabanForms.map((item) => ({
+        ...item._doc,
+        jawaban_url:
+          item.form_id?.type_field === "file"
+            ? `${baseUrl}/files/private/uploads/jawaban-form/${path.basename(
+                item.jawaban
+              )}`
+            : null,
+      }));
+
       res.status(200).json({
         message: "Berhasil mengambil semua jawaban form",
-        data: jawabanForms,
+        count: dataWithUrl.length,
+        data: dataWithUrl,
       });
     } catch (error) {
-      console.error(error);
+      console.error("❌ GET ALL JAWABAN FORM ERROR:", error);
       res.status(500).json({
         message: "Gagal mengambil data jawaban form",
         error: error.message,
@@ -102,18 +158,28 @@ module.exports = {
           select: "nama_field type_field is_required",
         });
 
-      if (!jawaban) {
+      if (!jawaban)
         return res
           .status(404)
           .json({ message: "Jawaban form tidak ditemukan" });
-      }
+
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      const dataWithUrl = {
+        ...jawaban._doc,
+        jawaban_url:
+          jawaban.form_id?.type_field === "file"
+            ? `${baseUrl}/files/private/uploads/jawaban-form/${path.basename(
+                jawaban.jawaban
+              )}`
+            : null,
+      };
 
       res.status(200).json({
         message: "Berhasil mengambil data jawaban form",
-        data: jawaban,
+        data: dataWithUrl,
       });
     } catch (error) {
-      console.error(error);
+      console.error("❌ GET JAWABAN FORM BY ID ERROR:", error);
       res.status(500).json({
         message: "Gagal mengambil data jawaban form",
         error: error.message,
@@ -126,28 +192,31 @@ module.exports = {
       const { id } = req.params;
       const { jawaban } = req.body;
 
-      if (!jawaban) {
-        return res.status(400).json({ message: "Field jawaban wajib diisi" });
-      }
-
-      const updated = await JawabanForm.findByIdAndUpdate(
-        id,
-        { jawaban },
-        { new: true }
-      );
-
-      if (!updated) {
+      const jawabanForm = await JawabanForm.findById(id);
+      if (!jawabanForm)
         return res
           .status(404)
           .json({ message: "Jawaban form tidak ditemukan" });
+
+      let updatedValue = jawabanForm.jawaban;
+
+      if (req.file) {
+        const oldPath = path.resolve(__dirname, "../../", jawabanForm.jawaban);
+        safeUnlink(oldPath);
+        updatedValue = `private/uploads/jawaban-form/${req.file.filename}`;
+      } else if (jawaban) {
+        updatedValue = jawaban.trim();
       }
+
+      jawabanForm.jawaban = updatedValue;
+      await jawabanForm.save();
 
       res.status(200).json({
         message: "Jawaban form berhasil diperbarui",
-        data: updated,
+        data: jawabanForm,
       });
     } catch (error) {
-      console.error(error);
+      console.error("❌ UPDATE JAWABAN FORM ERROR:", error);
       res.status(500).json({
         message: "Gagal memperbarui jawaban form",
         error: error.message,
@@ -157,16 +226,22 @@ module.exports = {
 
   deleteJawabanForm: async (req, res) => {
     try {
-      const deleted = await JawabanForm.findByIdAndDelete(req.params.id);
-      if (!deleted) {
+      const jawabanForm = await JawabanForm.findById(req.params.id);
+      if (!jawabanForm)
         return res
           .status(404)
           .json({ message: "Jawaban form tidak ditemukan" });
+
+      if (jawabanForm.jawaban?.startsWith("private/uploads/")) {
+        const filePath = path.resolve(__dirname, "../../", jawabanForm.jawaban);
+        safeUnlink(filePath);
       }
+
+      await JawabanForm.findByIdAndDelete(req.params.id);
 
       res.status(200).json({ message: "Jawaban form berhasil dihapus" });
     } catch (error) {
-      console.error(error);
+      console.error("❌ DELETE JAWABAN FORM ERROR:", error);
       res.status(500).json({
         message: "Gagal menghapus jawaban form",
         error: error.message,

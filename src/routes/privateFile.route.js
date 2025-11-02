@@ -4,11 +4,11 @@ const path = require("path");
 const fs = require("fs");
 const { verifyToken } = require("../middleware/auth.middleware");
 
-router.get("/private/images/:folder/:filename", verifyToken, (req, res) => {
+router.get("/private/uploads/:folder/:filename", verifyToken, (req, res) => {
   const { folder, filename } = req.params;
   const filePath = path.resolve(
     __dirname,
-    `../../private/uploads/images/${folder}/${filename}`
+    `../../private/uploads/${folder}/${filename}`
   );
 
   if (fs.existsSync(filePath)) {

@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { uploadPrivateImage } = require("../middleware/upload.middleware");
+const { uploadPrivateFile } = require("../middleware/upload.middleware");
 const {
   createBuktiPenerimaan,
   getAllBuktiPenerimaan,
@@ -12,14 +12,14 @@ const {
 
 router.post(
   "/",
-  uploadPrivateImage("bukti-penerimaan").single("foto"),
+  uploadPrivateFile("bukti-penerimaan").single("foto"),
   createBuktiPenerimaan
 );
 router.get("/", getAllBuktiPenerimaan);
 router.get("/:id", getBuktiPenerimaanById);
 router.patch(
   "/:id",
-  uploadPrivateImage("bukti-penerimaan").single("foto"),
+  uploadPrivateFile("bukti-penerimaan").single("foto"),
   updateBuktiPenerimaan
 );
 router.patch("/:id/verify", verifyBuktiPenerimaan);

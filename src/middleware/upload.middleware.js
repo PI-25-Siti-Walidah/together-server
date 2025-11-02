@@ -6,49 +6,10 @@ const ensureDirExists = (dir) => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 };
 
-// ==== Upload gambar public ====
-const uploadPublicImage = (folderName = "others") => {
+const createUploader = (baseDir, folderName, maxSizeMB = 5) => {
   const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-      const uploadPath = path.resolve(
-        __dirname,
-        `../../public/uploads/images/${folderName}`
-      );
-      ensureDirExists(uploadPath);
-      cb(null, uploadPath);
-    },
-    filename: (req, file, cb) => {
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-      cb(null, uniqueSuffix + path.extname(file.originalname));
-    },
-  });
-
-  const fileFilter = (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|webp/;
-    const isValid =
-      allowedTypes.test(file.mimetype) &&
-      allowedTypes.test(path.extname(file.originalname).toLowerCase());
-
-    if (isValid) cb(null, true);
-    else
-      cb(new Error("Hanya file gambar (jpeg, jpg, png, webp) yang diizinkan!"));
-  };
-
-  return multer({
-    storage,
-    limits: { fileSize: 5 * 1024 * 1024 },
-    fileFilter,
-  });
-};
-
-// ==== Upload gambar private ====
-const uploadPrivateImage = (folderName = "others") => {
-  const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-      const uploadPath = path.resolve(
-        __dirname,
-        `../../private/uploads/images/${folderName}`
-      );
+      const uploadPath = path.resolve(__dirname, `${baseDir}/${folderName}`);
       ensureDirExists(uploadPath);
       cb(null, uploadPath);
     },
@@ -59,57 +20,44 @@ const uploadPrivateImage = (folderName = "others") => {
   });
 
   const fileFilter = (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|webp/;
-    const isValid =
-      allowedTypes.test(path.extname(file.originalname).toLowerCase()) &&
-      allowedTypes.test(file.mimetype);
+    const allowedExt = /\.(jpeg|jpg|png|webp|pdf|doc|docx|xls|xlsx)$/i;
+    const allowedMime = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ];
 
-    if (isValid) cb(null, true);
-    else cb(new Error("File gambar tidak valid!"));
-  };
+    const isExtValid = allowedExt.test(file.originalname.toLowerCase());
+    const isMimeValid = allowedMime.includes(file.mimetype);
 
-  return multer({
-    storage,
-    limits: { fileSize: 5 * 1024 * 1024 },
-    fileFilter,
-  });
-};
-
-// ==== Upload document private ====
-const uploadPrivateDoc = (folderName = "documents") => {
-  const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-      const uploadPath = path.resolve(
-        __dirname,
-        `../../private/uploads/documents/${folderName}`
-      );
-      ensureDirExists(uploadPath);
-      cb(null, uploadPath);
-    },
-    filename: (req, file, cb) => {
-      const uniqueName = Date.now() + "-" + Math.round(Math.random() * 1e9);
-      cb(null, uniqueName + path.extname(file.originalname));
-    },
-  });
-
-  const fileFilter = (req, file, cb) => {
-    const allowedTypes = /pdf|doc|docx|xls|xlsx/;
-    const isValid =
-      allowedTypes.test(path.extname(file.originalname).toLowerCase()) &&
-      allowedTypes.test(file.mimetype);
-
-    if (isValid) cb(null, true);
+    if (isExtValid && isMimeValid) cb(null, true);
     else
       cb(
-        new Error("Hanya dokumen (PDF, DOC, DOCX, XLS, XLSX) yang diizinkan!")
+        new Error(
+          "Hanya file gambar atau dokumen (jpg, png, pdf, doc, xls, dll) yang diizinkan!"
+        )
       );
   };
 
   return multer({
     storage,
-    limits: { fileSize: 10 * 1024 * 1024 },
+    limits: { fileSize: maxSizeMB * 1024 * 1024 },
     fileFilter,
   });
 };
 
-module.exports = { uploadPublicImage, uploadPrivateImage, uploadPrivateDoc };
+// ==== Upload file public ====
+const uploadPublicFile = (folderName = "others") =>
+  createUploader(path.join(__dirname, "../../public/uploads"), folderName, 5);
+
+// ==== Upload file private ====
+const uploadPrivateFile = (folderName = "others") =>
+  createUploader(path.join(__dirname, "../../private/uploads"), folderName, 5);
+
+module.exports = { uploadPublicFile, uploadPrivateFile };

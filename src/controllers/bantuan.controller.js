@@ -4,10 +4,7 @@ const Bantuan = require("../models/bantuan.model");
 const Kategori = require("../models/kategori.model");
 const Mitra = require("../models/mitra.model");
 
-const publicDir = path.resolve(
-  __dirname,
-  "../../public/uploads/images/bantuan"
-);
+const publicDir = path.resolve(__dirname, "../../public/uploads/bantuan");
 
 const safeUnlink = (filePath) => {
   try {
@@ -81,7 +78,7 @@ module.exports = {
         parsedSyarat = [syarat];
       }
 
-      const foto = `uploads/images/bantuan/${req.file.filename}`;
+      const foto = `uploads/bantuan/${req.file.filename}`;
 
       const bantuan = await Bantuan.create({
         kategori_id,
@@ -143,13 +140,22 @@ module.exports = {
       const totalData = await Bantuan.countDocuments(filter);
       const totalPages = Math.ceil(totalData / parseInt(limit));
 
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+
+      const dataWithFullUrl = bantuanList.map((bantuan) => ({
+        ...bantuan._doc,
+        foto_url: bantuan.foto
+          ? `${baseUrl}/${bantuan.foto.replace(/\\/g, "/")}`
+          : null,
+      }));
+
       res.status(200).json({
         success: true,
         message: "Berhasil mengambil semua data bantuan",
         page: parseInt(page),
         totalPages,
         totalData,
-        data: bantuanList,
+        data: dataWithFullUrl,
       });
     } catch (error) {
       console.error(error);
@@ -172,10 +178,18 @@ module.exports = {
           .status(404)
           .json({ success: false, message: "Bantuan tidak ditemukan" });
 
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      const bantuanWithUrl = {
+        ...bantuan._doc,
+        foto_url: bantuan.foto
+          ? `${baseUrl}/${bantuan.foto.replace(/\\/g, "/")}`
+          : null,
+      };
+
       res.status(200).json({
         success: true,
         message: "Berhasil mendapatkan data bantuan",
-        data: bantuan,
+        data: bantuanWithUrl,
       });
     } catch (error) {
       res.status(500).json({
@@ -224,7 +238,7 @@ module.exports = {
       if (req.file) {
         const oldPath = path.resolve(__dirname, "../../public", bantuan.foto);
         safeUnlink(oldPath);
-        updateData.foto = `uploads/images/bantuan/${req.file.filename}`;
+        updateData.foto = `uploads/bantuan/${req.file.filename}`;
       }
 
       const updated = await Bantuan.findByIdAndUpdate(id, updateData, {
