@@ -37,22 +37,12 @@ module.exports = {
     }
   },
 
-  updateUser: async (req, res) => {
+  updateProfile: async (req, res) => {
     try {
       const { id } = req.params;
-      const { nama, username, password, no_telp, alamat } = req.body;
+      const { nama, username, no_telp, alamat } = req.body;
 
-      const updateData = {};
-
-      if (nama) updateData.nama = nama;
-      if (username) updateData.username = username;
-      if (no_telp) updateData.no_telp = no_telp;
-      if (alamat) updateData.alamat = alamat;
-
-      if (password) {
-        const salt = await bcrypt.genSalt(10);
-        updateData.password = await bcrypt.hash(password, salt);
-      }
+      const updateData = { nama, username, no_telp, alamat };
 
       const updatedUser = await User.findByIdAndUpdate(id, updateData, {
         new: true,
@@ -63,13 +53,48 @@ module.exports = {
       }
 
       res.status(200).json({
-        message: "Berhasil memperbarui data user",
-        updatedUser,
+        message: "Profil berhasil diperbarui",
+        user: updatedUser,
       });
     } catch (error) {
-      console.error(error);
       res.status(500).json({
-        message: "Gagal memperbarui data user",
+        message: "Gagal memperbarui profil",
+        error: error.message,
+      });
+    }
+  },
+
+  updatePassword: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { oldPassword, newPassword, confirmPassword } = req.body;
+
+      if (newPassword !== confirmPassword) {
+        return res
+          .status(400)
+          .json({ message: "Konfirmasi password tidak cocok" });
+      }
+
+      const user = await User.findById(id);
+      if (!user) {
+        return res.status(404).json({ message: "User tidak ditemukan" });
+      }
+
+      const isMatch = await bcrypt.compare(oldPassword, user.password);
+      if (!isMatch) {
+        return res.status(400).json({ message: "Password lama salah" });
+      }
+
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+      user.password = hashedPassword;
+      await user.save();
+
+      res.status(200).json({ message: "Password berhasil diperbarui" });
+    } catch (error) {
+      res.status(500).json({
+        message: "Gagal memperbarui password",
         error: error.message,
       });
     }
