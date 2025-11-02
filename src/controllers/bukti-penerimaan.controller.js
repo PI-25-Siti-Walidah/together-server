@@ -5,7 +5,7 @@ const fs = require("fs");
 
 const privateDir = path.resolve(
   __dirname,
-  "../../private/uploads/images/bukti-penerimaan"
+  "../../private/uploads/bukti-penerimaan"
 );
 
 const safeUnlink = (filePath) => {
@@ -40,7 +40,7 @@ module.exports = {
         return res.status(400).json({ message: "File harus berupa gambar" });
       }
 
-      const fotoPath = `private/uploads/images/bukti-penerimaan/${req.file.filename}`;
+      const fotoPath = `private/uploads/bukti-penerimaan/${req.file.filename}`;
 
       const bukti = await BuktiPenerimaan.create({
         pengajuan_id,
@@ -74,9 +74,11 @@ module.exports = {
 
       const dataWithFullUrl = buktiList.map((bukti) => ({
         ...bukti._doc,
-        foto_url: `${baseUrl}/files/private/images/bukti-penerimaan/${path.basename(
-          bukti.foto
-        )}`,
+        foto_url: bukti.foto
+          ? `${baseUrl}/files/private/uploads/bukti-penerimaan/${path.basename(
+              bukti.foto
+            )}`
+          : null,
       }));
 
       res.status(200).json({
@@ -109,9 +111,11 @@ module.exports = {
 
       const dataWithFullUrl = {
         ...bukti._doc,
-        foto_url: `${baseUrl}/files/private/images/bukti-penerimaan/${path.basename(
-          bukti.foto
-        )}`,
+        foto_url: bukti.foto
+          ? `${baseUrl}/files/private/uploads/bukti-penerimaan/${path.basename(
+              bukti.foto
+            )}`
+          : null,
       };
 
       res.status(200).json({
@@ -177,7 +181,7 @@ module.exports = {
 
       if (req.file) {
         safeUnlink(path.resolve(__dirname, "../../", bukti.foto));
-        bukti.foto = `private/uploads/images/bukti-penerimaan/${req.file.filename}`;
+        bukti.foto = `private/uploads/bukti-penerimaan/${req.file.filename}`;
       }
 
       if (keterangan) bukti.keterangan = keterangan.trim();
@@ -205,7 +209,12 @@ module.exports = {
           .status(404)
           .json({ message: "Bukti penerimaan tidak ditemukan" });
 
-      safeUnlink(path.resolve(__dirname, "../../", bukti.foto));
+      const oldPath = path.resolve(
+        __dirname,
+        "../../private/uploads/bukti-penerimaan",
+        path.basename(bukti.foto)
+      );
+      safeUnlink(oldPath);
       await BuktiPenerimaan.findByIdAndDelete(req.params.id);
 
       res.status(200).json({ message: "Bukti penerimaan berhasil dihapus" });
