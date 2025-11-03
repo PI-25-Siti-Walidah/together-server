@@ -1,20 +1,6 @@
 const BuktiPenerimaan = require("../models/bukti-penerimaan.model");
 const Pengajuan = require("../models/pengajuan.model");
-const path = require("path");
-const fs = require("fs");
-
-const privateDir = path.resolve(
-  __dirname,
-  "../../private/uploads/bukti-penerimaan"
-);
-
-const safeUnlink = (filePath) => {
-  try {
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-  } catch (err) {
-    console.warn("⚠️ Gagal menghapus file:", err.message);
-  }
-};
+const { v2: cloudinary } = require("cloudinary");
 
 module.exports = {
   createBuktiPenerimaan: async (req, res) => {
@@ -30,25 +16,17 @@ module.exports = {
           .json({ message: "Field pengajuan_id dan keterangan wajib diisi" });
 
       const pengajuan = await Pengajuan.findById(pengajuan_id);
-      if (!pengajuan) {
-        safeUnlink(path.join(privateDir, req.file.filename));
+      if (!pengajuan)
         return res.status(404).json({ message: "Pengajuan tidak ditemukan" });
-      }
-
-      if (!req.file.mimetype.startsWith("image/")) {
-        safeUnlink(req.file.path);
-        return res.status(400).json({ message: "File harus berupa gambar" });
-      }
-
-      const fotoPath = `private/uploads/bukti-penerimaan/${req.file.filename}`;
 
       const bukti = await BuktiPenerimaan.create({
         pengajuan_id,
-        foto: fotoPath,
+        foto: req.file.path,
         keterangan: keterangan.trim(),
       });
 
       res.status(201).json({
+        success: true,
         message: "Bukti penerimaan berhasil ditambahkan",
         data: bukti,
       });
@@ -70,21 +48,11 @@ module.exports = {
         .populate("pengajuan_id", "judul status_pengajuan")
         .sort({ createdAt: -1 });
 
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
-
-      const dataWithFullUrl = buktiList.map((bukti) => ({
-        ...bukti._doc,
-        foto_url: bukti.foto
-          ? `${baseUrl}/files/private/uploads/bukti-penerimaan/${path.basename(
-              bukti.foto
-            )}`
-          : null,
-      }));
-
       res.status(200).json({
+        success: true,
         message: "Berhasil mengambil semua bukti penerimaan",
-        count: dataWithFullUrl.length,
-        data: dataWithFullUrl,
+        count: buktiList.length,
+        data: buktiList,
       });
     } catch (error) {
       console.error("❌ GET ALL ERROR:", error);
@@ -107,20 +75,10 @@ module.exports = {
           .status(404)
           .json({ message: "Bukti penerimaan tidak ditemukan" });
 
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
-
-      const dataWithFullUrl = {
-        ...bukti._doc,
-        foto_url: bukti.foto
-          ? `${baseUrl}/files/private/uploads/bukti-penerimaan/${path.basename(
-              bukti.foto
-            )}`
-          : null,
-      };
-
       res.status(200).json({
+        success: true,
         message: "Berhasil mengambil data bukti penerimaan",
-        data: dataWithFullUrl,
+        data: bukti,
       });
     } catch (error) {
       console.error("❌ GET BY ID ERROR:", error);
@@ -154,6 +112,7 @@ module.exports = {
       await bukti.save();
 
       res.status(200).json({
+        success: true,
         message: `Bukti penerimaan berhasil ${
           status_verifikasi === "disetujui" ? "disetujui" : "ditolak"
         } oleh admin.`,
@@ -179,9 +138,17 @@ module.exports = {
           .status(404)
           .json({ message: "Bukti penerimaan tidak ditemukan" });
 
-      if (req.file) {
-        safeUnlink(path.resolve(__dirname, "../../", bukti.foto));
-        bukti.foto = `private/uploads/bukti-penerimaan/${req.file.filename}`;
+      if (req.file && bukti.foto) {
+        try {
+          const parts = bukti.foto.split("/");
+          const publicId = `${parts[parts.length - 2]}/${
+            parts[parts.length - 1].split(".")[0]
+          }`;
+          await cloudinary.uploader.destroy(publicId);
+        } catch (err) {
+          console.warn("⚠️ Gagal menghapus file lama Cloudinary:", err.message);
+        }
+        bukti.foto = req.file.path;
       }
 
       if (keterangan) bukti.keterangan = keterangan.trim();
@@ -189,6 +156,7 @@ module.exports = {
       await bukti.save();
 
       res.status(200).json({
+        success: true,
         message: "Bukti penerimaan berhasil diperbarui",
         data: bukti,
       });
@@ -209,15 +177,24 @@ module.exports = {
           .status(404)
           .json({ message: "Bukti penerimaan tidak ditemukan" });
 
-      const oldPath = path.resolve(
-        __dirname,
-        "../../private/uploads/bukti-penerimaan",
-        path.basename(bukti.foto)
-      );
-      safeUnlink(oldPath);
+      if (bukti.foto) {
+        try {
+          const parts = bukti.foto.split("/");
+          const publicId = `${parts[parts.length - 2]}/${
+            parts[parts.length - 1].split(".")[0]
+          }`;
+          await cloudinary.uploader.destroy(publicId);
+        } catch (err) {
+          console.warn("⚠️ Gagal menghapus file dari Cloudinary:", err.message);
+        }
+      }
+
       await BuktiPenerimaan.findByIdAndDelete(req.params.id);
 
-      res.status(200).json({ message: "Bukti penerimaan berhasil dihapus" });
+      res.status(200).json({
+        success: true,
+        message: "Bukti penerimaan berhasil dihapus",
+      });
     } catch (error) {
       console.error("❌ DELETE ERROR:", error);
       res.status(500).json({

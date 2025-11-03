@@ -1,16 +1,5 @@
-const fs = require("fs");
-const path = require("path");
 const Mitra = require("../models/mitra.model");
-
-const publicDir = path.resolve(__dirname, "../../public/uploads/mitra");
-
-const safeUnlink = (filePath) => {
-  try {
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-  } catch (err) {
-    console.warn("Gagal menghapus file:", err.message);
-  }
-};
+const { v2: cloudinary } = require("cloudinary");
 
 module.exports = {
   createMitra: async (req, res) => {
@@ -23,20 +12,19 @@ module.exports = {
           .json({ success: false, message: "Semua field wajib diisi" });
       }
 
-      let logo = null;
-      if (req.file) {
-        logo = `uploads/mitra/${req.file.filename}`;
-      }
+      const logoUrl = req.file?.path || null;
 
-      const mitra = await Mitra.create({ nama, no_telp, alamat, logo });
-
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
-      const logo_url = logo ? `${baseUrl}/${logo}` : null;
+      const mitra = await Mitra.create({
+        nama,
+        no_telp,
+        alamat,
+        logo: logoUrl,
+      });
 
       res.status(201).json({
         success: true,
         message: "Mitra berhasil ditambahkan",
-        data: { ...mitra._doc, logo_url },
+        data: mitra,
       });
     } catch (error) {
       res.status(500).json({
@@ -63,19 +51,13 @@ module.exports = {
       const totalData = await Mitra.countDocuments(filter);
       const totalPages = Math.ceil(totalData / parseInt(limit));
 
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
-      const dataWithUrl = mitraList.map((m) => ({
-        ...m._doc,
-        logo_url: m.logo ? `${baseUrl}/${m.logo}` : null,
-      }));
-
       res.status(200).json({
         success: true,
         message: "Berhasil mengambil semua data mitra",
         page: parseInt(page),
         totalPages,
         totalData,
-        data: dataWithUrl,
+        data: mitraList,
       });
     } catch (error) {
       res.status(500).json({
@@ -94,13 +76,10 @@ module.exports = {
           .status(404)
           .json({ success: false, message: "Mitra tidak ditemukan" });
 
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
-      const logo_url = mitra.logo ? `${baseUrl}/${mitra.logo}` : null;
-
       res.status(200).json({
         success: true,
         message: "Berhasil mendapatkan data mitra",
-        data: { ...mitra._doc, logo_url },
+        data: mitra,
       });
     } catch (error) {
       res.status(500).json({
@@ -122,25 +101,32 @@ module.exports = {
 
       const updateData = req.body;
 
-      if (req.file) {
+      if (req.file && req.file.path) {
         if (mitra.logo) {
-          const oldPath = path.resolve(__dirname, "../../public", mitra.logo);
-          safeUnlink(oldPath);
+          try {
+            const parts = mitra.logo.split("/");
+            const publicId = `${parts[parts.length - 2]}/${
+              parts[parts.length - 1].split(".")[0]
+            }`;
+            await cloudinary.uploader.destroy(publicId);
+          } catch (err) {
+            console.warn(
+              "⚠️ Gagal menghapus file lama Cloudinary:",
+              err.message
+            );
+          }
         }
-        updateData.logo = `uploads/mitra/${req.file.filename}`;
+        updateData.logo = req.file.path;
       }
 
       const updated = await Mitra.findByIdAndUpdate(id, updateData, {
         new: true,
       });
 
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
-      const logo_url = updated.logo ? `${baseUrl}/${updated.logo}` : null;
-
       res.status(200).json({
         success: true,
         message: "Mitra berhasil diperbarui",
-        data: { ...updated._doc, logo_url },
+        data: updated,
       });
     } catch (error) {
       res.status(500).json({
@@ -160,8 +146,15 @@ module.exports = {
           .json({ success: false, message: "Mitra tidak ditemukan" });
 
       if (mitra.logo) {
-        const filePath = path.resolve(publicDir, path.basename(mitra.logo));
-        safeUnlink(filePath);
+        try {
+          const parts = mitra.logo.split("/");
+          const publicId = `${parts[parts.length - 2]}/${
+            parts[parts.length - 1].split(".")[0]
+          }`;
+          await cloudinary.uploader.destroy(publicId);
+        } catch (err) {
+          console.warn("⚠️ Gagal menghapus file lama Cloudinary:", err.message);
+        }
       }
 
       await Mitra.findByIdAndDelete(req.params.id);
@@ -181,11 +174,19 @@ module.exports = {
 
   deleteAllMitra: async (req, res) => {
     try {
-      const mitraList = await Mitra.find({});
-      for (const m of mitraList) {
-        if (m.logo) {
-          const filePath = path.resolve(__dirname, "../../public", m.logo);
-          safeUnlink(filePath);
+      const allMitra = await Mitra.find();
+
+      for (const mitra of allMitra) {
+        if (mitra.logo) {
+          try {
+            const parts = mitra.logo.split("/");
+            const publicId = `${parts[parts.length - 2]}/${
+              parts[parts.length - 1].split(".")[0]
+            }`;
+            await cloudinary.uploader.destroy(publicId);
+          } catch (err) {
+            console.warn("⚠️ Gagal menghapus file Cloudinary:", err.message);
+          }
         }
       }
 
