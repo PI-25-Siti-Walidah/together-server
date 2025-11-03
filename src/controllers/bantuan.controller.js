@@ -123,14 +123,16 @@ module.exports = {
 
       const skip = (parseInt(page) - 1) * parseInt(limit);
 
-      const bantuanList = await Bantuan.find(filter)
-        .populate("kategori_id", "nama_kategori")
-        .populate("mitra_id", "nama")
-        .skip(skip)
-        .limit(parseInt(limit))
-        .sort({ createdAt: -1 });
+      const [bantuanList, totalData] = await Promise.all([
+        Bantuan.find(filter)
+          .populate("kategori_id", "nama_kategori")
+          .populate("mitra_id", "nama")
+          .skip(skip)
+          .limit(parseInt(limit))
+          .sort({ createdAt: -1 }),
+        Bantuan.countDocuments(filter),
+      ]);
 
-      const totalData = await Bantuan.countDocuments(filter);
       const totalPages = Math.ceil(totalData / parseInt(limit));
 
       res.status(200).json({
