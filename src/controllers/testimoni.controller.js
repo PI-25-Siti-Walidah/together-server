@@ -1,17 +1,6 @@
 const Testimoni = require("../models/testimoni.model");
 const Pengajuan = require("../models/pengajuan.model");
-const path = require("path");
-const fs = require("fs");
-
-const publicDir = path.resolve(__dirname, "../../public/uploads/testimoni");
-
-const safeUnlink = (filePath) => {
-  try {
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-  } catch (err) {
-    console.warn("⚠️ Gagal menghapus file:", err.message);
-  }
-};
+const { v2: cloudinary } = require("cloudinary");
 
 module.exports = {
   createTestimoni: async (req, res) => {
@@ -34,16 +23,9 @@ module.exports = {
         return res.status(404).json({ message: "Pengajuan tidak ditemukan" });
       }
 
-      if (!req.file.mimetype.startsWith("image/")) {
-        safeUnlink(req.file.path);
-        return res.status(400).json({ message: "File harus berupa gambar" });
-      }
-
-      const fotoPath = `uploads/testimoni/${req.file.filename}`;
-
       const newTestimoni = await Testimoni.create({
         pengajuan_id,
-        foto: fotoPath,
+        foto: req.file.path,
         keterangan: keterangan.trim(),
       });
 
@@ -69,17 +51,10 @@ module.exports = {
         .populate("pengajuan_id", "judul status_pengajuan")
         .sort({ createdAt: -1 });
 
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
-
-      const dataWithFullUrl = testimoniList.map((t) => ({
-        ...t._doc,
-        foto_url: `${baseUrl}/${t.foto}`,
-      }));
-
       res.status(200).json({
         message: "Berhasil mengambil semua testimoni",
-        count: dataWithFullUrl.length,
-        data: dataWithFullUrl,
+        count: testimoniList.length,
+        data: testimoniList,
       });
     } catch (error) {
       console.error("❌ GET ALL TESTIMONI ERROR:", error);
@@ -100,16 +75,9 @@ module.exports = {
       if (!testimoni)
         return res.status(404).json({ message: "Testimoni tidak ditemukan" });
 
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
-
-      const dataWithFullUrl = {
-        ...testimoni._doc,
-        foto_url: `${baseUrl}/${testimoni.foto}`,
-      };
-
       res.status(200).json({
         message: "Berhasil mengambil data testimoni",
-        data: dataWithFullUrl,
+        data: testimoni,
       });
     } catch (error) {
       console.error("❌ GET TESTIMONI BY ID ERROR:", error);
@@ -129,10 +97,17 @@ module.exports = {
       if (!testimoni)
         return res.status(404).json({ message: "Testimoni tidak ditemukan" });
 
-      if (req.file) {
-        const oldPath = path.resolve(__dirname, "../../public", testimoni.foto);
-        safeUnlink(oldPath);
-        testimoni.foto = `uploads/testimoni/${req.file.filename}`;
+      if (req.file && testimoni.foto) {
+        try {
+          const parts = testimoni.foto.split("/");
+          const publicId = `${parts[parts.length - 2]}/${
+            parts[parts.length - 1].split(".")[0]
+          }`;
+          await cloudinary.uploader.destroy(publicId);
+        } catch (err) {
+          console.warn("⚠️ Gagal menghapus file lama Cloudinary:", err.message);
+        }
+        testimoni.foto = req.file.path;
       }
 
       if (keterangan) testimoni.keterangan = keterangan.trim();
@@ -158,7 +133,17 @@ module.exports = {
       if (!testimoni)
         return res.status(404).json({ message: "Testimoni tidak ditemukan" });
 
-      safeUnlink(path.resolve(__dirname, "../../public", testimoni.foto));
+      if (testimoni.foto) {
+        try {
+          const parts = testimoni.foto.split("/");
+          const publicId = `${parts[parts.length - 2]}/${
+            parts[parts.length - 1].split(".")[0]
+          }`;
+          await cloudinary.uploader.destroy(publicId);
+        } catch (err) {
+          console.warn("⚠️ Gagal menghapus file dari Cloudinary:", err.message);
+        }
+      }
       await Testimoni.findByIdAndDelete(req.params.id);
 
       res.status(200).json({ message: "Testimoni berhasil dihapus" });
