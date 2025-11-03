@@ -1,25 +1,7 @@
 const JawabanForm = require("../models/jawaban-form.model");
 const Pengajuan = require("../models/pengajuan.model");
 const FormPengajuan = require("../models/form-pengajuan.model");
-const path = require("path");
-const fs = require("fs");
-
-const privateDir = path.resolve(
-  __dirname,
-  "../../private/uploads/jawaban-form"
-);
-
-if (!fs.existsSync(privateDir)) {
-  fs.mkdirSync(privateDir, { recursive: true });
-}
-
-const safeUnlink = (filePath) => {
-  try {
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-  } catch (err) {
-    console.warn("⚠️ Gagal menghapus file:", err.message);
-  }
-};
+const { v2: cloudinary } = require("cloudinary");
 
 module.exports = {
   createJawabanForm: async (req, res) => {
@@ -65,11 +47,11 @@ module.exports = {
         ];
 
         if (!allowedMime.includes(req.file.mimetype)) {
-          safeUnlink(req.file.path);
           return res.status(400).json({ message: "Tipe file tidak diizinkan" });
         }
 
-        jawabanValue = `private/uploads/jawaban-form/${req.file.filename}`;
+        // simpan URL cloudinary
+        jawabanValue = req.file.path;
       } else if (!jawaban) {
         return res.status(400).json({ message: "Jawaban wajib diisi" });
       }
@@ -116,22 +98,10 @@ module.exports = {
         })
         .sort({ createdAt: -1 });
 
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
-
-      const dataWithUrl = jawabanForms.map((item) => ({
-        ...item._doc,
-        jawaban_url:
-          item.form_id?.type_field === "file"
-            ? `${baseUrl}/files/private/uploads/jawaban-form/${path.basename(
-                item.jawaban
-              )}`
-            : null,
-      }));
-
       res.status(200).json({
         message: "Berhasil mengambil semua jawaban form",
-        count: dataWithUrl.length,
-        data: dataWithUrl,
+        count: jawabanForms.length,
+        data: jawabanForms,
       });
     } catch (error) {
       console.error("❌ GET ALL JAWABAN FORM ERROR:", error);
@@ -163,20 +133,9 @@ module.exports = {
           .status(404)
           .json({ message: "Jawaban form tidak ditemukan" });
 
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
-      const dataWithUrl = {
-        ...jawaban._doc,
-        jawaban_url:
-          jawaban.form_id?.type_field === "file"
-            ? `${baseUrl}/files/private/uploads/jawaban-form/${path.basename(
-                jawaban.jawaban
-              )}`
-            : null,
-      };
-
       res.status(200).json({
         message: "Berhasil mengambil data jawaban form",
-        data: dataWithUrl,
+        data: jawaban,
       });
     } catch (error) {
       console.error("❌ GET JAWABAN FORM BY ID ERROR:", error);
@@ -192,23 +151,33 @@ module.exports = {
       const { id } = req.params;
       const { jawaban } = req.body;
 
-      const jawabanForm = await JawabanForm.findById(id);
+      const jawabanForm = await JawabanForm.findById(id).populate("form_id");
       if (!jawabanForm)
         return res
           .status(404)
           .json({ message: "Jawaban form tidak ditemukan" });
 
-      let updatedValue = jawabanForm.jawaban;
+      if (req.file && jawabanForm.form_id.type_field === "file") {
+        if (jawabanForm.jawaban) {
+          try {
+            const parts = jawabanForm.jawaban.split("/");
+            const publicId = `${parts[parts.length - 2]}/${
+              parts[parts.length - 1].split(".")[0]
+            }`;
+            await cloudinary.uploader.destroy(publicId);
+          } catch (err) {
+            console.warn(
+              "⚠️ Gagal menghapus file lama Cloudinary:",
+              err.message
+            );
+          }
+        }
 
-      if (req.file) {
-        const oldPath = path.resolve(__dirname, "../../", jawabanForm.jawaban);
-        safeUnlink(oldPath);
-        updatedValue = `private/uploads/jawaban-form/${req.file.filename}`;
+        jawabanForm.jawaban = req.file.path;
       } else if (jawaban) {
-        updatedValue = jawaban.trim();
+        jawabanForm.jawaban = jawaban.trim();
       }
 
-      jawabanForm.jawaban = updatedValue;
       await jawabanForm.save();
 
       res.status(200).json({
@@ -226,15 +195,24 @@ module.exports = {
 
   deleteJawabanForm: async (req, res) => {
     try {
-      const jawabanForm = await JawabanForm.findById(req.params.id);
+      const jawabanForm = await JawabanForm.findById(req.params.id).populate(
+        "form_id"
+      );
       if (!jawabanForm)
         return res
           .status(404)
           .json({ message: "Jawaban form tidak ditemukan" });
 
-      if (jawabanForm.jawaban?.startsWith("private/uploads/")) {
-        const filePath = path.resolve(__dirname, "../../", jawabanForm.jawaban);
-        safeUnlink(filePath);
+      if (jawabanForm.form_id.type_field === "file" && jawabanForm.jawaban) {
+        try {
+          const parts = jawabanForm.jawaban.split("/");
+          const publicId = `${parts[parts.length - 2]}/${
+            parts[parts.length - 1].split(".")[0]
+          }`;
+          await cloudinary.uploader.destroy(publicId);
+        } catch (err) {
+          console.warn("⚠️ Gagal menghapus file Cloudinary:", err.message);
+        }
       }
 
       await JawabanForm.findByIdAndDelete(req.params.id);

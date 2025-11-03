@@ -1,18 +1,7 @@
-const fs = require("fs");
-const path = require("path");
 const Bantuan = require("../models/bantuan.model");
 const Kategori = require("../models/kategori.model");
 const Mitra = require("../models/mitra.model");
-
-const publicDir = path.resolve(__dirname, "../../public/uploads/bantuan");
-
-const safeUnlink = (filePath) => {
-  try {
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-  } catch (err) {
-    console.warn("Gagal menghapus file:", err.message);
-  }
-};
+const { v2: cloudinary } = require("cloudinary");
 
 module.exports = {
   createBantuan: async (req, res) => {
@@ -43,15 +32,19 @@ module.exports = {
         periode_mulai,
         periode_berakhir,
       ];
-      if (requiredFields.some((f) => !f))
-        return res
-          .status(400)
-          .json({ success: false, message: "Semua field wajib diisi" });
+      if (requiredFields.some((f) => !f)) {
+        return res.status(400).json({
+          success: false,
+          message: "Semua field wajib diisi",
+        });
+      }
 
-      if (!req.file)
-        return res
-          .status(400)
-          .json({ success: false, message: "Foto bantuan wajib diunggah" });
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: "Foto bantuan wajib diunggah",
+        });
+      }
 
       const kategori = await Kategori.findById(kategori_id);
       if (!kategori)
@@ -78,7 +71,7 @@ module.exports = {
         parsedSyarat = [syarat];
       }
 
-      const foto = `uploads/bantuan/${req.file.filename}`;
+      const fotoUrl = req.file?.path || null;
 
       const bantuan = await Bantuan.create({
         kategori_id,
@@ -93,7 +86,7 @@ module.exports = {
         periode_mulai,
         periode_berakhir,
         is_active,
-        foto,
+        foto: fotoUrl,
       });
 
       res.status(201).json({
@@ -102,7 +95,7 @@ module.exports = {
         data: bantuan,
       });
     } catch (error) {
-      console.error(error);
+      console.error("❌ CREATE BANTUAN ERROR:", error);
       res.status(500).json({
         success: false,
         message: "Gagal membuat data bantuan",
@@ -140,25 +133,16 @@ module.exports = {
       const totalData = await Bantuan.countDocuments(filter);
       const totalPages = Math.ceil(totalData / parseInt(limit));
 
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
-
-      const dataWithFullUrl = bantuanList.map((bantuan) => ({
-        ...bantuan._doc,
-        foto_url: bantuan.foto
-          ? `${baseUrl}/${bantuan.foto.replace(/\\/g, "/")}`
-          : null,
-      }));
-
       res.status(200).json({
         success: true,
         message: "Berhasil mengambil semua data bantuan",
         page: parseInt(page),
         totalPages,
         totalData,
-        data: dataWithFullUrl,
+        data: bantuanList,
       });
     } catch (error) {
-      console.error(error);
+      console.error("❌ GET ALL BANTUAN ERROR:", error);
       res.status(500).json({
         success: false,
         message: "Gagal mengambil data bantuan",
@@ -178,18 +162,10 @@ module.exports = {
           .status(404)
           .json({ success: false, message: "Bantuan tidak ditemukan" });
 
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
-      const bantuanWithUrl = {
-        ...bantuan._doc,
-        foto_url: bantuan.foto
-          ? `${baseUrl}/${bantuan.foto.replace(/\\/g, "/")}`
-          : null,
-      };
-
       res.status(200).json({
         success: true,
         message: "Berhasil mendapatkan data bantuan",
-        data: bantuanWithUrl,
+        data: bantuan,
       });
     } catch (error) {
       res.status(500).json({
@@ -235,10 +211,22 @@ module.exports = {
           message: "Periode berakhir harus setelah periode mulai",
         });
 
-      if (req.file) {
-        const oldPath = path.resolve(__dirname, "../../public", bantuan.foto);
-        safeUnlink(oldPath);
-        updateData.foto = `uploads/bantuan/${req.file.filename}`;
+      if (req.file && req.file.path) {
+        if (bantuan.foto) {
+          try {
+            const parts = bantuan.foto.split("/");
+            const publicId = `${parts[parts.length - 2]}/${
+              parts[parts.length - 1].split(".")[0]
+            }`;
+            await cloudinary.uploader.destroy(publicId);
+          } catch (err) {
+            console.warn(
+              "⚠️ Gagal menghapus foto lama di Cloudinary:",
+              err.message
+            );
+          }
+        }
+        updateData.foto = req.file.path;
       }
 
       const updated = await Bantuan.findByIdAndUpdate(id, updateData, {
@@ -253,6 +241,7 @@ module.exports = {
         data: updated,
       });
     } catch (error) {
+      console.error("❌ UPDATE BANTUAN ERROR:", error);
       res.status(500).json({
         success: false,
         message: "Gagal memperbarui data bantuan",
@@ -269,8 +258,18 @@ module.exports = {
           .status(404)
           .json({ success: false, message: "Bantuan tidak ditemukan" });
 
-      const filePath = path.resolve(publicDir, path.basename(bantuan.foto));
-      safeUnlink(filePath);
+      if (bantuan.foto) {
+        try {
+          const parts = bantuan.foto.split("/");
+          const publicId = `${parts[parts.length - 2]}/${
+            parts[parts.length - 1].split(".")[0]
+          }`;
+          await cloudinary.uploader.destroy(publicId);
+        } catch (err) {
+          console.warn("⚠️ Gagal menghapus foto dari Cloudinary:", err.message);
+        }
+      }
+
       await Bantuan.findByIdAndDelete(req.params.id);
 
       res.status(200).json({
@@ -278,6 +277,7 @@ module.exports = {
         message: "Bantuan berhasil dihapus",
       });
     } catch (error) {
+      console.error("❌ DELETE BANTUAN ERROR:", error);
       res.status(500).json({
         success: false,
         message: "Gagal menghapus bantuan",
@@ -291,8 +291,18 @@ module.exports = {
       const bantuanList = await Bantuan.find({});
       for (const b of bantuanList) {
         if (b.foto) {
-          const filePath = path.resolve(publicDir, path.basename(b.foto));
-          safeUnlink(filePath);
+          try {
+            const parts = b.foto.split("/");
+            const publicId = `${parts[parts.length - 2]}/${
+              parts[parts.length - 1].split(".")[0]
+            }`;
+            await cloudinary.uploader.destroy(publicId);
+          } catch (err) {
+            console.warn(
+              "⚠️ Gagal menghapus foto dari Cloudinary:",
+              err.message
+            );
+          }
         }
       }
 
@@ -303,6 +313,7 @@ module.exports = {
         deletedCount: result.deletedCount,
       });
     } catch (error) {
+      console.error("❌ DELETE ALL BANTUAN ERROR:", error);
       res.status(500).json({
         success: false,
         message: "Gagal menghapus semua bantuan",
