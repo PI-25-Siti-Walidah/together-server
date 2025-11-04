@@ -8,7 +8,7 @@ const app = express();
 app.use(
   cors({
     origin: ["http://localhost:3000", "https://together-client.vercel.app"],
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     credentials: true,
   })
 );
