@@ -13,6 +13,7 @@ const formPengajuanRouter = require("./form-pengajuan.route");
 const jawabanFormRouter = require("./jawaban-form.route");
 const buktiPenerimaanRouter = require("./bukti-penerimaan.route");
 const testimoniRouter = require("./testimoni.route");
+const herAiRouter = require("./her-ai.route");
 
 router.use("/auth", authRouter);
 router.use("/users", verifyToken, userRouter);
@@ -25,5 +26,6 @@ router.use("/form-pengajuan", verifyToken, formPengajuanRouter);
 router.use("/jawaban-form", verifyToken, jawabanFormRouter);
 router.use("/bukti-penerimaan", verifyToken, buktiPenerimaanRouter);
 router.use("/testimoni", verifyToken, testimoniRouter);
+router.use("/her-ai", herAiRouter);
 
 module.exports = router;
