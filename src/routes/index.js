@@ -20,12 +20,12 @@ router.use("/users", verifyToken, userRouter);
 router.use("/kategori", kategoriRouter);
 router.use("/mitra", mitraRouter);
 router.use("/bantuan", bantuanRouter);
-router.use("/pengajuan", verifyToken, pengajuanRouter);
-router.use("/tracking-pengajuan", verifyToken, trackingPengajuanRouter);
-router.use("/form-pengajuan", verifyToken, formPengajuanRouter);
-router.use("/jawaban-form", verifyToken, jawabanFormRouter);
-router.use("/bukti-penerimaan", verifyToken, buktiPenerimaanRouter);
-router.use("/testimoni", verifyToken, testimoniRouter);
+router.use("/pengajuan", pengajuanRouter);
+router.use("/tracking-pengajuan", trackingPengajuanRouter);
+router.use("/form-pengajuan", formPengajuanRouter);
+router.use("/jawaban-form", jawabanFormRouter);
+router.use("/bukti-penerimaan", buktiPenerimaanRouter);
+router.use("/testimoni", testimoniRouter);
 router.use("/her-ai", herAiRouter);
 
 module.exports = router;
