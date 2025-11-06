@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { verifyToken } = require("../middleware/auth.middleware");
 const {
   createPengajuan,
   getAllPengajuan,
@@ -10,12 +11,12 @@ const {
   deletePengajuan,
 } = require("../controllers/pengajuan.controller");
 
-router.post("/", createPengajuan);
+router.post("/", verifyToken, createPengajuan);
 router.get("/", getAllPengajuan);
 router.get("/user", getAllPengajuanByUser);
 router.get("/:id", getPengajuanById);
-router.patch("/:id", updatePengajuan);
-router.patch("/:id/status", updateStatusPengajuan);
-router.delete("/:id", deletePengajuan);
+router.patch("/:id", verifyToken, updatePengajuan);
+router.patch("/:id/status", verifyToken, updateStatusPengajuan);
+router.delete("/:id", verifyToken, deletePengajuan);
 
 module.exports = router;
